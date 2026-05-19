@@ -41,7 +41,7 @@ https://remix.ethereum.org/
 
 ![image](../src/deploy_run_settings.png)
 
-- Select the **Metamask** environnement
+- Select the **Sepolia Testnet - Metamask** environnement
 
 ![image](../src/deploy_run_select_metamask.png)
 

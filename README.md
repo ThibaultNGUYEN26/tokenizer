@@ -66,13 +66,18 @@ Compared to other tools:
 
 - **ChainIDE** offers templates for ERC-20 and NFT contracts, but these ready-made codes reduce the learning value. Remix encourages direct interaction with Solidity, ensuring a better understanding of how the token works.
 - **Truffle** is a powerful framework for managing complex deployments and automated testing. However, it requires a full local setup and additional configuration, which is unnecessary for a simple token project.
-- **Hardhat** is widely used in professional environments for automation and advanced debugging. While very powerful, it adds extra layers of setup and scripts that make it heavier for this kindo of project.
+- **Hardhat** is widely used in professional environments for automation and advanced debugging. While very powerful, it adds extra layers of setup and scripts that make it heavier for this kind of project.
 
 **Remix strikes the right balance**: it is official, lightweight, well-documented, and focuses directly on Solidity development without the overhead of more advanced frameworks.
 
 ---
 
+
 ## Smart Contract
+
+### 🤖 What is a Smart Contract?
+
+A **smart contract** is a self-executing program stored on the blockchain. It automatically enforces rules and actions defined in its code, without the need for intermediaries. Smart contracts can hold and transfer assets (like tokens), manage balances, and execute transactions when certain conditions are met. Once deployed, their logic cannot be changed, ensuring transparency and trust. In the context of tokens, the smart contract defines how tokens are created, transferred, and managed on the blockchain.
 
 ### 🦊 Why MetaMask
 
