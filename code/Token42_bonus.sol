@@ -3,63 +3,60 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
-// Multisig wallet where a transaction is executed after enough owners confirm it.
-contract MultiSigWallet {
-    // Emitted on direct ETH transfers to the wallet.
-    event Deposit(address indexed sender, uint amount, uint balance);
-    // Emitted when an owner submits a new transaction for later execution.
-    event SubmitTransaction(address indexed owner, uint indexed txIndex, address indexed to, uint value, bytes data);
-    event ConfirmTransaction(address indexed owner, uint indexed txIndex);
+// ERC20 token whose treasury is held by the token contract itself.
+// Owners must confirm outgoing transfers before execution.
+contract Token42_bonus is ERC20 {
+    event SubmitTransfer(address indexed owner, uint indexed txIndex, address indexed to, uint256 amount);
+    event ConfirmTransfer(address indexed owner, uint indexed txIndex);
     event RevokeConfirmation(address indexed owner, uint indexed txIndex);
-    event ExecuteTransaction(address indexed owner, uint indexed txIndex);
+    event ExecuteTransfer(address indexed owner, uint indexed txIndex);
 
-    // Solidity generates owners(uint256), not a getter for the full array.
     address[] public owners;
-    // Constant-time owner membership check used by onlyOwner.
     mapping(address => bool) public isOwner;
-    uint public numConfirmationsRequired;
+    uint256 public numConfirmationsRequired;
 
-    struct Transaction {
+    struct TransferRequest {
         address to;
-        uint value;
-        bytes data;
+        uint256 amount;
         bool executed;
-        uint numConfirmations;
+        uint256 numConfirmations;
     }
 
-    mapping(uint => mapping(address => bool)) public isConfirmed;
-    Transaction[] public transactions;
+    mapping(uint256 => mapping(address => bool)) public isConfirmed;
+    TransferRequest[] public transferRequests;
 
-    // Restricts access to wallet owners.
     modifier onlyOwner() {
         require(isOwner[msg.sender], "not owner");
         _;
     }
 
-    // Ensures the requested transaction index exists.
-    modifier txExists(uint _txIndex) {
-        require(_txIndex < transactions.length, "tx does not exist");
+    modifier txExists(uint256 _txIndex) {
+        require(_txIndex < transferRequests.length, "tx does not exist");
         _;
     }
 
-    // Prevents double execution of the same transaction.
-    modifier notExecuted(uint _txIndex) {
-        require(!transactions[_txIndex].executed, "tx already executed");
+    modifier notExecuted(uint256 _txIndex) {
+        require(!transferRequests[_txIndex].executed, "tx already executed");
         _;
     }
 
-    // Prevents the same owner from confirming twice.
-    modifier notConfirmed(uint _txIndex) {
+    modifier notConfirmed(uint256 _txIndex) {
         require(!isConfirmed[_txIndex][msg.sender], "tx already confirmed");
         _;
     }
 
-    // Each owner must be unique and non-zero, and the threshold must be valid.
-    constructor(address[] memory _owners, uint _numConfirmationsRequired) {
+    constructor(
+        uint256 initialSupply,
+        address[] memory _owners,
+        uint256 _numConfirmationsRequired
+    ) ERC20("Token42_bonus", "T42B") {
         require(_owners.length > 0, "owners required");
-        require(_numConfirmationsRequired > 0 && _numConfirmationsRequired <= _owners.length, "invalid number of required confirmations");
+        require(
+            _numConfirmationsRequired > 0 && _numConfirmationsRequired <= _owners.length,
+            "invalid number of required confirmations"
+        );
 
-        for (uint i = 0; i < _owners.length; i++) {
+        for (uint256 i = 0; i < _owners.length; i++) {
             address owner = _owners[i];
 
             require(owner != address(0), "invalid owner");
@@ -70,89 +67,90 @@ contract MultiSigWallet {
         }
 
         numConfirmationsRequired = _numConfirmationsRequired;
+        _mint(address(this), initialSupply * 10 ** decimals());
     }
 
-    // Allows the wallet to receive ETH directly.
-    receive() external payable {
-        emit Deposit(msg.sender, msg.value, address(this).balance);
-    }
+    // Stores a transfer proposal; execution happens in a separate step.
+    function submitTransfer(address _to, uint256 _amount) public onlyOwner {
+        require(_to != address(0), "invalid recipient");
+        require(_amount > 0, "amount required");
 
-    // Stores a transaction proposal; execution happens in a separate step.
-    function submitTransaction(address _to, uint _value, bytes memory _data) public onlyOwner {
-        uint txIndex = transactions.length;
-
-        transactions.push(
-            Transaction({
+        uint256 txIndex = transferRequests.length;
+        transferRequests.push(
+            TransferRequest({
                 to: _to,
-                value: _value,
-                data: _data,
+                amount: _amount,
                 executed: false,
                 numConfirmations: 0
             })
         );
 
-        emit SubmitTransaction(msg.sender, txIndex, _to, _value, _data);
+        emit SubmitTransfer(msg.sender, txIndex, _to, _amount);
     }
 
-    // Records one owner's confirmation for a pending transaction.
-    function confirmTransaction(uint _txIndex) public onlyOwner txExists(_txIndex) notExecuted(_txIndex) notConfirmed(_txIndex) {
-        Transaction storage transaction = transactions[_txIndex];
-        transaction.numConfirmations += 1;
+    // Records one owner's confirmation for a pending transfer.
+    function confirmTransfer(uint256 _txIndex)
+        public
+        onlyOwner
+        txExists(_txIndex)
+        notExecuted(_txIndex)
+        notConfirmed(_txIndex)
+    {
+        TransferRequest storage transferRequest = transferRequests[_txIndex];
+        transferRequest.numConfirmations += 1;
         isConfirmed[_txIndex][msg.sender] = true;
 
-        emit ConfirmTransaction(msg.sender, _txIndex);
+        emit ConfirmTransfer(msg.sender, _txIndex);
     }
 
-    // Executes the call once the confirmation threshold is reached.
-    function executeTransaction(uint _txIndex) public onlyOwner txExists(_txIndex) notExecuted(_txIndex) {
-        Transaction storage transaction = transactions[_txIndex];
+    // Executes the transfer once the confirmation threshold is reached.
+    function executeTransfer(uint256 _txIndex) public onlyOwner txExists(_txIndex) notExecuted(_txIndex) {
+        TransferRequest storage transferRequest = transferRequests[_txIndex];
 
-        require(transaction.numConfirmations >= numConfirmationsRequired, "cannot execute tx");
+        require(
+            transferRequest.numConfirmations >= numConfirmationsRequired,
+            "cannot execute tx"
+        );
+        require(balanceOf(address(this)) >= transferRequest.amount, "insufficient treasury");
 
-        transaction.executed = true;
+        transferRequest.executed = true;
+        _transfer(address(this), transferRequest.to, transferRequest.amount);
 
-        (bool success, ) = transaction.to.call{value: transaction.value}(transaction.data);
-        require(success, "tx failed");
-
-        emit ExecuteTransaction(msg.sender, _txIndex);
+        emit ExecuteTransfer(msg.sender, _txIndex);
     }
 
     // Lets an owner withdraw a previous confirmation before execution.
-    function revokeConfirmation(uint _txIndex) public onlyOwner txExists(_txIndex) notExecuted(_txIndex) {
-        Transaction storage transaction = transactions[_txIndex];
+    function revokeConfirmation(uint256 _txIndex) public onlyOwner txExists(_txIndex) notExecuted(_txIndex) {
+        TransferRequest storage transferRequest = transferRequests[_txIndex];
 
         require(isConfirmed[_txIndex][msg.sender], "tx not confirmed");
 
-        transaction.numConfirmations -= 1;
+        transferRequest.numConfirmations -= 1;
         isConfirmed[_txIndex][msg.sender] = false;
 
         emit RevokeConfirmation(msg.sender, _txIndex);
     }
 
-    // Returns the full owners array in one call.
     function getOwners() public view returns (address[] memory) {
         return owners;
     }
 
-    // Convenience getter for off-chain iteration over transactions.
-    function getTransactionCount() public view returns (uint) {
-        return transactions.length;
+    function getTransferRequestCount() public view returns (uint256) {
+        return transferRequests.length;
     }
 
-    // Returns the stored fields for one transaction.
-    function getTransaction(uint _txIndex) public view returns (address to, uint value, bytes memory data, bool executed, uint numConfirmations)
+    function getTransferRequest(uint256 _txIndex)
+        public
+        view
+        returns (address to, uint256 amount, bool executed, uint256 numConfirmations)
     {
-        Transaction storage transaction = transactions[_txIndex];
+        TransferRequest storage transferRequest = transferRequests[_txIndex];
 
-        return (transaction.to, transaction.value, transaction.data, transaction.executed, transaction.numConfirmations);
-    }
-}
-
-// ERC20 token whose initial supply is minted to the multisig wallet.
-contract Token42_bonus is ERC20 {
-    constructor(uint256 initialSupply, address multisigAddress) ERC20("Token42_bonus", "T42B") {
-        require(multisigAddress != address(0), "Invalid multisig address");
-        // ERC20 uses 18 decimals by default, so the supply is scaled accordingly.
-        _mint(multisigAddress, initialSupply * 10 ** decimals());
+        return (
+            transferRequest.to,
+            transferRequest.amount,
+            transferRequest.executed,
+            transferRequest.numConfirmations
+        );
     }
 }

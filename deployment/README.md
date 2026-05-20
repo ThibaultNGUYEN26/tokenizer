@@ -106,7 +106,13 @@ Now you have access to the contract on Etherscan
 
 ---
 
-## Deploy the MultiSig Wallet
+## Deploy the Bonus Token
 
-Do **the exact same process** (with the correct code)
-When deploying the smart contract, make a tab with **the wallet addresses** of owners and the number of signatures.
+Do **the exact same process** with `Token42_bonus.sol`.
+When deploying the smart contract, provide:
+
+- the **initial supply**
+- the list of **owner wallet addresses**
+- the **number of required confirmations**
+
+The `Token42_bonus` contract now keeps the treasury and multisig confirmation flow in the same contract, so there is only one deployment.
