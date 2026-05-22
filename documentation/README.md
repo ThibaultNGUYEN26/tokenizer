@@ -105,52 +105,53 @@ Transfer T42 to a wallet:
 
 ---
 
-## 9. How to Use MultiSig with Token42
+## 9. How to Use Token42_bonus
 
-The **MultiSigWallet** ensures that no single owner can move Token42 tokens alone.
-Every transfer or action must be **submitted**, **confirmed** by multiple owners, and then **executed** once the required number of confirmations is reached.
+`Token42_bonus` is now a **single contract** that combines an ERC-20 token with a built-in multisig approval flow.
+The token treasury is minted to the contract itself, and outgoing transfers must be **submitted**, **confirmed** by multiple owners, and then **executed**.
 
-### 1. Deploy MultiSigWallet
-- Deploy the `MultiSigWallet` contract first.
+### 1. Deploy Token42_bonus
+- Deploy the `Token42_bonus` contract.
 - Provide:
-  - A list of owner addresses (e.g. `["0x123...", "0x456..."]`).
-  - The number of confirmations required (e.g. `2`).
+  - `initialSupply` (for example `1000`)
+  - a list of owner addresses (for example `["0x123...", "0x456...", "0x789..."]`)
+  - the number of confirmations required (for example `2`)
 
-### 2. Deploy Token42
-- Copy the multisig contract address.
-- Deploy `Token42` with:
-  - `initialSupply = 1000`
-  - `multisigAddress = [address of MultiSigWallet]`
+The entire supply of **1000 T42B** is minted into the `Token42_bonus` contract treasury, not directly to a personal wallet.
 
-The entire supply of **1000 T42** is minted directly into the MultiSigWallet.
+### 2. Submit a Transfer Request
+- An owner calls `submitTransfer(_to, _amount)` on `Token42_bonus`.
+- `_to`: recipient wallet address.
+- `_amount`: token amount using 18 decimals.
 
-### 3. Submit a Token Transfer
-- An owner calls `submitTransaction()` on the MultiSigWallet:
-  - `_to`: recipient address.
-  - `_value`: `0` (no ETH, only token call).
-  - `_data`: the ABI-encoded function call for Token42 (e.g. `transfer(address,uint256)`).
+Examples:
+- `1 T42B` = `1000000000000000000`
+- `10 T42B` = `10000000000000000000`
+- `50 T42B` = `50000000000000000000`
 
-Example (to transfer 10 T42):
-- Use Remix → “submitTransaction”
-- `_to`: Token42 contract address.
-- `_data`: ABI for `transfer("0xRecipient", 10 * 10^18)`.
+### 3. Confirm the Transfer
+- Owners call `confirmTransfer(txIndex)`.
+- Each owner can confirm a given transfer request only once.
+- Once the required number of confirmations is reached, the transfer is ready to be executed.
 
-### 4. Confirm the Transaction
-- Each additional owner must call `confirmTransaction(txIndex)`.
-- Once the required number of confirmations is reached, the transaction is ready.
+### 4. Execute the Transfer
+- Any owner can call `executeTransfer(txIndex)`.
+- If enough confirmations exist and the treasury holds enough tokens, the transfer executes.
+- The recipient then receives their T42B tokens.
 
-### 5. Execute the Transaction
-- Any owner can then call `executeTransaction(txIndex)`.
-- If enough confirmations exist, the transfer will execute.
-- The recipient receives their T42 tokens.
+### 5. Useful Read Functions
+- `getOwners()` returns the owner list.
+- `getTransferRequestCount()` returns the number of submitted transfer requests.
+- `getTransferRequest(txIndex)` returns the recipient, amount, execution state, and number of confirmations.
+- `balanceOf(address)` checks the balance of a wallet or of the contract treasury.
 
 ### Example Workflow
 1. Alice, Bob, and Charlie are owners.
 2. Required confirmations: `2`.
-3. Alice submits a transaction to transfer 50 T42 to Dave.
-4. Bob confirms the transaction.
-5. Alice (or Bob) executes it.
-6. Dave receives 50 T42.
+3. Alice submits a transfer of `50 T42B` to Dave with `submitTransfer(Dave, 50000000000000000000)`.
+4. Bob confirms it with `confirmTransfer(0)`.
+5. Alice or Bob executes it with `executeTransfer(0)`.
+6. Dave receives `50 T42B`.
 
 ---
 
