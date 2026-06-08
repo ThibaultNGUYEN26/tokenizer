@@ -35,7 +35,16 @@ It provides a practical example of the complete lifecycle of a token, from codin
 - **Symbol**: T42
 - **Decimals**: 18 (default ERC-20)
 - **Initial Supply**: 1000 T42 (minted to deployer’s address)
-- **Contract Address**: `0x...` (deployed on Sepolia)
+- **Contract Address**: `0x5c8349a457504175612E13d17b4d9706CEE8f0fF` (deployed on Sepolia)
+- **Explorer**: [Sepolia Etherscan](https://sepolia.etherscan.io/)
+
+### Token42_bonus
+
+- **Contract Name**: Token42_bonus
+- **Symbol**: T42B
+- **Decimals**: 18 (default ERC-20)
+- **Initial Supply**: 1000 T42B (minted to the contract treasury)
+- **Contract Address**: `0x4B578aC2A24afC7564a7f9eaC03Dc91458982a5F` (deployed on Sepolia)
 - **Explorer**: [Sepolia Etherscan](https://sepolia.etherscan.io/)
 
 ---
